@@ -134,7 +134,7 @@
                         {% if post.deleted and not post.timestamp_expired %}<i class="icon-trash" title="This post was prematurely deleted."></i>{% endif %}
                         {% if post.deleted and post.timestamp_expired %}<i class="icon-trash" title="This post was deleted on {{ post.timestamp_expired }}."></i>{% endif %}
                         </span>
-                                    <span class="mobile_view"><a href="./{{ post.no }}" class="btnr parent">View</a></span>
+                                    <span class="mobile_view"><a href="/{{ board }}/thread/{{ post.no }}" class="btnr parent">View</a></span>
                                     <span class="mobile_bulk"></span>
                                     {% if post.resto == 0 %}
                                     <span class="post_controls">

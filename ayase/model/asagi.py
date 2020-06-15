@@ -5,9 +5,8 @@ import sys
 import html
 import databases
 import timeit
-# from fastapi.staticfiles import StaticFiles
 
-from view.asagi import app, debug, CONF, DB_ENGINE
+from view.asagi import app, CONF, DEBUG 
 
 SELECTOR = """SELECT
     `num` AS `no`,
@@ -54,13 +53,14 @@ SELECT_GALLERY_THREADS_BY_OFFSET = SELECTOR + "FROM `{board}` INNER JOIN `{board
 SELECT_GALLERY_THREAD_IMAGES = "SELECT `{board}`.media_hash, `{board}_images`.`media`, `{board}_images`.`preview_reply` FROM ((`{board}` INNER JOIN `{board}_threads` ON `{board}`.`thread_num` = `{board}_threads`.`thread_num`) INNER JOIN `{board}_images` ON `{board}_images`.`media_hash` = `{board}`.`media_hash`) WHERE OP=1 ORDER BY `{board}_threads`.`time_last` DESC LIMIT 150 OFFSET {page_num};"
 SELECT_GALLERY_THREAD_DETAILS = "SELECT `nreplies`, `nimages` FROM `{board}_threads` ORDER BY `time_last` DESC LIMIT 150 OFFSET {page_num}"
 
+DB_ENGINE = CONF.database["default"]
+
 # This is temporary
 if DB_ENGINE == "postgresql":
     import re
 
-    postfix = "_asagi" if CONF["scraper"]["default"] == "ena" else ""
-    # assign multiple variables
-    # tuple unpacking
+    postfix = "_asagi" if CONF.scraper["default"] == "ena" else ""
+    # assign multiple variables (tuple unpacking)
     queries = [
         SELECT_POST,
         SELECT_POST_IMAGES,
@@ -112,10 +112,9 @@ if DB_ENGINE == "postgresql":
         for query in queries
     )
 
-global debug
 global database
 database = None
-DATABASE_URL = "{engine}://{user}:{password}@{host}:{port}/{database}"
+DATABASE_URL = "{engine}://{user}:{password}@{host}:{port}/{database}{charset}"
 
 
 # app.mount("/static", StaticFiles(directory="foolfuuka/static"), name="static")
@@ -124,13 +123,15 @@ DATABASE_URL = "{engine}://{user}:{password}@{host}:{port}/{database}"
 @app.on_event("startup")
 async def startup():
     global database
+    charset = CONF.database[DB_ENGINE]["charset"]
     url = DATABASE_URL.format(
         engine=DB_ENGINE,
-        host=CONF["database"][DB_ENGINE]["host"],
-        port=CONF["database"][DB_ENGINE]["port"],
-        user=CONF["database"][DB_ENGINE]["user"],
-        password=CONF["database"][DB_ENGINE]["password"],
-        database=CONF["database"][DB_ENGINE]["db"],
+        host=CONF.database[DB_ENGINE]["host"],
+        port=CONF.database[DB_ENGINE]["port"],
+        user=CONF.database[DB_ENGINE]["user"],
+        password=CONF.database[DB_ENGINE]["password"],
+        database=CONF.database[DB_ENGINE]["db"],
+        charset=f"?charset={charset}" if DB_ENGINE == 'mysql' else f"?client_encoding={charset}"
     )
     database = databases.Database(url)
     await database.connect()
@@ -144,7 +145,7 @@ async def shutdown():
 
 async def db_handler(sql: str, fetchall: bool):
     try:
-        if not debug:
+        if not DEBUG:
             return (
                 (await database.fetch_all(query=sql))
                 if fetchall

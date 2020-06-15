@@ -1,22 +1,69 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-import timeit
-import yaml
+import config as CONF
 import subprocess
+import timeit
+
 from fastapi import FastAPI, Request, Response, status
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
-
 from jinja2 import (
     Environment,
     FileSystemLoader,
     select_autoescape,
-)  # PackageLoader
+    # PackageLoader
+)
 
 
-global app
 app = FastAPI()
+
+DEBUG = CONF.DEBUG
+
+# This has to be here so the above is loaded prior to importing these
+from model.asagi import (
+    convert_thread,
+    generate_index,
+    convert_post,
+    generate_gallery
+)
+
+
+env = Environment(
+    # loader=PackageLoader('ayase', 'templates'),
+    loader=FileSystemLoader("foolfuuka/templates"),
+    autoescape=select_autoescape(["html", "xml"])
+)
+
+archives = CONF.archives
+archive_list = []
+
+boards = CONF.boards
+skins = CONF.skins
+site_name = CONF.SITE_NAME
+scraper = CONF.scraper
+board_list = []
+
+image_uri = CONF.image_location["image"]
+thumb_uri = CONF.image_location["thumb"]
+
+if boards:
+    for i in boards:
+        board_list.append(i["shortname"])
+
+if archives:
+    for i in archives:
+        archive_list.append(i["shortname"])
+
+
+# Caches templates
+template_index = env.get_template("index.html")
+template_board_index = env.get_template("board_index.html")
+template_404 = env.get_template("404.html")
+template_gallery = env.get_template("gallery.html")
+template_thread = env.get_template("thread.html")
+template_post = env.get_template("post.html")
+template_posts = env.get_template("posts.html")
 
 
 def custom_openapi(openapi_prefix: str):
@@ -25,9 +72,7 @@ def custom_openapi(openapi_prefix: str):
     revision = "0.1.0"
     try:
         revision = (
-            subprocess.run(
-                ["git", "rev-parse", "--short", "HEAD"], stdout=subprocess.PIPE,
-            )
+            subprocess.run(["git", "rev-parse", "--short", "HEAD"], stdout=subprocess.PIPE)
             .stdout.decode("utf-8")
             .rstrip()
         )
@@ -50,64 +95,14 @@ def custom_openapi(openapi_prefix: str):
 
 app.openapi = custom_openapi
 
-env = Environment(
-    #    loader=PackageLoader('ayase', 'templates'),
-    loader=FileSystemLoader("foolfuuka/templates"),
-    autoescape=select_autoescape(["html", "xml"]),
-)
-
-# load the boards list
-global CONF
-with open("config.yml", "r") as yaml_conf:
-    CONF = yaml.safe_load(yaml_conf)
-
-debug = CONF["debug"]
-
-archives = CONF["archives"]
-archive_list = []
-
-boards = CONF["boards"]
-skins = CONF["skins"]
-site_name = CONF["site_name"]
-scraper = CONF["scraper"]
-board_list = []
-
-image_uri = CONF["image_location"]["image"]
-thumb_uri = CONF["image_location"]["thumb"]
-DB_ENGINE = CONF["database"]["default"]
-
-if boards:
-    for i in boards:
-        board_list.append(i["shortname"])
-
-if archives:
-    for i in archives:
-        archive_list.append(i["shortname"])
-
-
-# Caches templates
-template_index = env.get_template("index.html")
-template_board_index = env.get_template("board_index.html")
-template_404 = env.get_template("404.html")
-template_gallery = env.get_template("gallery.html")
-template_thread = env.get_template("thread.html")
-template_post = env.get_template("post.html")
-template_posts = env.get_template("posts.html")
-
-
-# This has to be here so the variables above are loaded prior to importing these
-from model.asagi import (
-    convert_thread,
-    generate_index,
-    convert_post,
-    generate_gallery,
-)
-
 
 class NotFoundException(Exception):
-    def __init__(self, board_name=CONF["site_name"]):
+    def __init__(self, board_name=site_name):
         self.title_window = board_name
-        if board_name == CONF["site_name"]:
+        if board_name == site_name:
+            return
+        if not (board_name in archive_list or board_name in board_list):
+            self.title_window = site_name
             return
         board_description = get_board_entry(board_name)["name"]
         title = (
@@ -126,7 +121,7 @@ async def not_found_exception_handler(request: Request, exc: NotFoundException):
         skin=get_skin(request),
         skins=skins,
         site_name=site_name,
-        options=CONF["options"],
+        options=CONF.options,
         status_code=404,
         scraper=scraper,
     )
@@ -136,9 +131,9 @@ async def not_found_exception_handler(request: Request, exc: NotFoundException):
 def get_skin(request: Request):
     try:
         skin_cookie = request.cookies.get("ayase_skin")
-        return skin_cookie if skin_cookie else CONF["default_skin"]
+        return skin_cookie if skin_cookie else CONF.default_skin
     except:
-        return CONF["default_skin"]
+        return CONF.default_skin
 
 
 # Find board in list of archives, if not check list of boards, otherwise
@@ -158,14 +153,14 @@ def get_board_entry(board_name: str):
 @app.get("/", response_class=HTMLResponse)
 async def index_html(request: Request):
     content = template_index.render(
-        title=CONF["site_name"],
-        title_window=CONF["site_name"],
+        title=site_name,
+        title_window=site_name,
         archives=archives,
         boards=boards,
         skin=get_skin(request),
         skins=skins,
         site_name=site_name,
-        options=CONF["options"],
+        options=CONF.options,
         scraper=scraper,
     )
     return content
@@ -191,7 +186,7 @@ async def board_html(request: Request, board_name: str):
                 boards=boards,
                 image_uri=image_uri.format(board_name=board_name),
                 thumb_uri=thumb_uri.format(board_name=board_name),
-                options=CONF["options"],
+                options=CONF.options,
                 title=title,
                 title_window=title,
                 skin=get_skin(request),
@@ -200,7 +195,7 @@ async def board_html(request: Request, board_name: str):
                 scraper=scraper,
             )
             end = timeit.default_timer()
-            if debug:
+            if DEBUG:
                 print("Time to generate index: ", end - start)
             return content
     raise NotFoundException(board_name)
@@ -234,13 +229,13 @@ async def gallery_html(request: Request, board_name: str):
             thumb_uri=thumb_uri.format(board_name=board_name),
             title=title,
             title_window=title_window,
-            options=CONF["options"],
+            options=CONF.options,
             skin=get_skin(request),
             skins=skins,
             scraper=scraper,
         )
         end = timeit.default_timer()
-        if debug:
+        if DEBUG:
             print("Time to generate gallery: ", end - start)
         return content
     raise NotFoundException(board_name)
@@ -265,13 +260,13 @@ async def gallery_index_html(request: Request, board_name: str, page_num: int):
             thumb_uri=thumb_uri.format(board_name=board_name),
             title=title,
             title_window=title_window,
-            options=CONF["options"],
+            options=CONF.options,
             skin=get_skin(request),
             skins=skins,
             scraper=scraper,
         )
         end = timeit.default_timer()
-        if debug:
+        if DEBUG:
             print("Time to generate gallery: ", end - start)
         return content
     raise NotFoundException(board_name)
@@ -295,7 +290,7 @@ async def board_index_html(request: Request, board_name: str, page_num: int):
                 boards=boards,
                 image_uri=image_uri.format(board_name=board_name),
                 thumb_uri=thumb_uri.format(board_name=board_name),
-                options=CONF["options"],
+                options=CONF.options,
                 title=title,
                 title_window=title_window,
                 skin=get_skin(request),
@@ -354,11 +349,11 @@ async def thread_html(request: Request, board_name: str, thread_id: int):
             skin=get_skin(request),
             skins=skins,
             site_name=site_name,
-            options=CONF["options"],
+            options=CONF.options,
             scraper=scraper,
         )
         end = timeit.default_timer()
-        if debug:
+        if DEBUG:
             print("Time to generate thread: ", end - start)
         return content
     raise NotFoundException(board_name)
@@ -388,7 +383,7 @@ async def posts_html(request: Request, board_name: str, thread_id: int):
                 scraper=scraper,
             )
             end = timeit.default_timer()
-            if debug:
+            if DEBUG:
                 print("Time to generate posts: ", end - start)
             return content
     raise NotFoundException(board_name)

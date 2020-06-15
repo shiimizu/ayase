@@ -1,6 +1,6 @@
 > **Note:** Currently Ayase is only a proof of concept that essentially just proxies the 4chan API for API testing and HTML Templating. Future versions will set up a connection to the both the Asagi and Ayase Schemas.
 
-**Ayase** is a 4chan Archiver API middleware and HTML frontend based on Python, Falcon, Hug, and Jinja2.
+**Ayase** is a 4chan Archiver API middleware and HTML frontend based on Python, FastAPI, and Jinja2.
 
 It was produced by the Bibliotheca Anonoma as a replacement for FoolFuuka, to be the API Middleware and HTML Templating Frontend to both Asagi and Ayase compatible scrapers, and the definition of the Ayase SQL Standard.
 
@@ -9,7 +9,7 @@ It was produced by the Bibliotheca Anonoma as a replacement for FoolFuuka, to be
 Ensure that Python and Pip are installed. Python/PyPy 3.6 or higher is recommended.
 
 ```
-pip install -U -r requirements.txt
+pip install -r requirements.txt
 ```
 
 ## Usage
@@ -31,7 +31,7 @@ uvicorn fourchan:app
 To use this template, you will need to have an accessible MySQL DB with an Asagi schema as well as a web server to host static content. We will be using NGINX here.
 
 #### Configuring ayase
-This template expects a YAML config file located at `ayase/config.yml`. An example is located in `ayase/config.example.yml`. Here, you can specifiy the database location, enabled archives/boards, and the expected image URL (useful if you plan to grab full images from another archive).
+This template expects a Python config file located at `ayase/config.py`. An example is located in `ayase/config.example.py`. Here, you can specifiy the database location, enabled archives/boards, and the expected image URL (useful if you plan to grab full images from another archive).
 
 #### Configuring the NGINX Web Server
 This template does not serve static content (such as the js, css, and any image files) and they will need to be hosted using an extra webserver, such as Nginx.

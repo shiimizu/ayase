@@ -144,6 +144,7 @@ cython_debug/
 */temp
 
 # local enviroment
-config.yml
-config.json
+config.*
+!config.example*
 *.vscode*
+.python-version

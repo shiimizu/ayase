@@ -1,12 +1,19 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+# This file contains the same sql statements from ayase.py
+# except that this is the original
+# when I had the original schema of having sha256 on the posts table
+# instead of having it in the media table.
+# The ayase.py that has hashes on the media table is using JOINS to the the hashes - I haven't benched how much it affects query speed
+
 import sys
 import html
 import databases
 import timeit
+import orjson
 
-from view.asagi import app, CONF, DEBUG 
+from view.asagi import app, CONF, DEBUG
 
 SELECTOR = """SELECT
     `num` AS `no`,
@@ -54,6 +61,8 @@ SELECT_GALLERY_THREAD_IMAGES = "SELECT `{board}`.media_hash, `{board}_images`.`m
 SELECT_GALLERY_THREAD_DETAILS = "SELECT `nreplies`, `nimages` FROM `{board}_threads` ORDER BY `time_last` DESC LIMIT 150 OFFSET {page_num}"
 
 DB_ENGINE = CONF.database["default"]
+PGSQL_GET_THREAD=''
+PGSQL_SELECTOR=''
 
 # This is temporary
 if DB_ENGINE == "postgresql":
@@ -111,18 +120,85 @@ if DB_ENGINE == "postgresql":
         .replace("`", '"')
         for query in queries
     )
-
+    # CREATE VIEW a_4chan AS SELECT
+    PGSQL_SELECTOR='''
+                    "no" ,
+                    "subnum" ,
+                    "sticky"::int::smallint as "sticky" ,
+                    "closed"::int::smallint as "closed" ,
+                    to_char(to_timestamp("time"), 'MM/DD/YY(Dy)HH24:MI:SS') as "now",
+                    "name" ,
+                    "sub" ,
+                    "com" ,
+                    "filedeleted" ,
+                    "spoiler"::int::smallint as "spoiler" ,
+                    "custom_spoiler" ,
+                    "filename" ,
+                    "ext" ,
+                    "w" ,
+                    "h" ,
+                    "tn_w" ,
+                    "tn_h" ,
+                    "tim" ,
+                    "time" ,
+                    encode("md5", 'base64') as "md5",
+                    -- encode("sha256", 'hex') as "sha256" ,
+                    -- encode("sha256t", 'hex') as "sha256t" ,
+                    "fsize" ,
+                    "m_img"::int::smallint as "m_img" ,
+                    "resto" ,
+                    "trip" ,
+                    "id" ,
+                    "capcode" ,
+                    "country" ,
+                    "troll_country" ,
+                    "country_name" ,
+                    (CASE WHEN resto=0 AND "archived_on" is not null THEN 1 END)::smallint as "archived" ,
+                    "bumplimit"::int::smallint as "bumplimit" ,
+                    "archived_on" ,
+                    "deleted_on",
+                    "imagelimit"::int::smallint as "imagelimit" ,
+                    "semantic_url" ,
+                    "replies" ,
+                    "images" ,
+                    "unique_ips" ,
+                    "tag" ,
+                    "since4pass" ,
+                    "last_modified" ,
+                    "extra"
+    '''
+    # from a
+    PGSQL_GET_THREAD = '''
+        select row_to_json(o2) as res
+        from (
+          select
+            (
+              select json_agg(json_strip_nulls(row_to_json(o1)))
+              from (
+                select
+                  %s
+                from "posts"
+                where ("no"={no} or "resto"={no}) and "board"={board_id}
+                order by "no"
+                {limit}
+              ) o1
+            ) as posts
+        ) o2;
+        ''' % PGSQL_SELECTOR
 global database
 database = None
 DATABASE_URL = "{engine}://{user}:{password}@{host}:{port}/{database}{charset}"
+global boards
+boards={}
 
-
-# app.mount("/static", StaticFiles(directory="foolfuuka/static"), name="static")
+# from fastapi.staticfiles import StaticFiles
+# app.mount("/assets", StaticFiles(directory="foolfuuka/assets"), name="assets")
 
 
 @app.on_event("startup")
 async def startup():
     global database
+    global boards
     charset = CONF.database[DB_ENGINE]["charset"]
     url = DATABASE_URL.format(
         engine=DB_ENGINE,
@@ -135,7 +211,13 @@ async def startup():
     )
     database = databases.Database(url)
     await database.connect()
+    ls=await get_boards()
+    for row in ls:
+        boards[row['board']]=row['id']
 
+async def get_boards():
+    sql=f'''SELECT * from boards'''
+    return await db_handler(sql, True)
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -299,8 +381,129 @@ def restore_comment(com: str, post_no: int):
         # split_by_line[i] = """<span class="banned">""".join(split_by_line[i].split("[banned]"))
         # split_by_line[i] = "</span>".join(split_by_line[i].split("[/banned]"))
     return quotelink_list, "</br>".join(split_by_line)
+import json
+async def generate_index2(board_name: str, page_num: int, before:int, after:int, limit:int=15, html=True):
+    # https://medium.com/kkempin/postgresqls-lateral-join-bfd6bd0199df
+    # https://stackoverflow.com/a/53087015
+    # https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/
+    # https://kb.objectrocket.com/postgresql/python-pagination-of-postgres-940
+    # todo: fix before
+    # todo?
+    # Over time instead of last_modified because we don't wann pick up changes if a post was delted or banned somewhere in the middle of a thread
+    # That shouldnt bump the index/catalog
 
+#     field='no'
+#     q_before=f'"a_4chan"."{field}" > {before}' if before and before > 0 else ''
+#     q_after=f'"a_4chan"."{field}" < {after}' if after and after > 0 else ''
+#     q_before_and=f'AND "a_4chan"."{field}" > {before}' if before and before > 0 else ''
+#     q_after_and=f'AND "a_4chan"."{field}" < {after}' if after and after > 0 else ''
+#     q_prefix='WHERE' if q_before or q_after else ''
+#     q_sql=f"{q_prefix} {q_before} {q_after}"
+#     direction='asc' if q_before else 'desc'
+#     direction_opp='desc' if q_before else 'asc'
+#     before_after_value=''
+#     if before:
+#         before_after_value=f' > {before}'
+#     elif after:
+#         before_after_value=f' < {after}'
+#     where_clause=f"where (CASE WHEN o5.replies=0 THEN o5.no ELSE (o5.last_replies->-1->>'no')::bigint END) {before_after_value}" if before_after_value else ''
+#     sql0=f'''
+# select json_build_object('threads', json_strip_nulls(json_agg(o5))) as "result" from (
+# 	select * from
+# 		(select {PGSQL_SELECTOR} from {board_name} where "resto" = 0 {q_before_and} {q_after_and} order by "last_modified" {direction} limit 15) o3
+# 	LEFT JOIN LATERAL
+# 		(SELECT json_agg(o2.*) as last_replies FROM
+# 		(select no from {board_name} where "resto" = 0 {q_before_and} {q_after_and} order by "last_modified" {direction} limit 15) o1
+# 		LEFT JOIN LATERAL
+# 	 	(select * from (select {PGSQL_SELECTOR} from {board_name} where "resto"=o1.no order by "no" desc limit 5)x order by "no" asc) o2
+# 	 	ON o2.resto is not null
+# 	 	GROUP by "resto") o4
+# 	ON ("last_replies" #>> '{{0,resto}}')::bigint = "no" order by "last_modified" desc
+# ) o5
+#     '''
+#     sql=f'''
+# select json_build_object('threads', json_strip_nulls(json_agg(o6))) as "result" from ( select * from
+# (select distinct on (op1.no) op1.*, (case when op1.replies=0 then null else o4.last_replies end) as last_replies from
+# (select * from "{board_name}_4chan" where resto=0 order by "{board_name}_4chan".no asc) op1
+# inner join lateral
+# (
+# -- select o44.last_replies from (
+# select json_agg(o3.*) as last_replies  from (select ((COALESCE(reply.*, op.*)).record::text::"{board_name}_4chan").* from
+# (select * from "{board_name}_4chan" where resto=0 order by "{board_name}_4chan".no asc) op
+# inner join lateral
+# (select * from (select * from "{board_name}_4chan" where "{board_name}_4chan".resto=op.no order by "{board_name}_4chan".no desc limit 5)o2 order by o2.no asc) reply
+# on true
+# order by reply.resto)o3
+# group by o3.resto
+# -- )o44 order by (o44.last_replies->-1->>'no')::bigint desc
+# )o4
+# on op1.no = (o4.last_replies->0->>'resto')::bigint or op1.replies=0
+# )o5
+# {where_clause}
+# order by (CASE WHEN o5.replies=0 THEN o5.no ELSE (o5.last_replies->-1->>'no')::bigint END) desc
+# limit {limit}
+# )o6
+#     '''
+    after_before_clause=''
+    if after != 0 and after is not None:
+        after_before_clause=f'where combined_last_no > {after}'
+    elif before != 0 and before is not None:
+        after_before_clause=f'where combined_last_no < {before}'
 
+    ordering='desc'
+    ordering_after=''
+    if after != 0 and after is not None:
+        ordering=''
+        ordering_after='order by combined_last_no desc'
+
+    after_start=''
+    after_end=''
+    if after != 0 and after is not None:
+        after_start='select * from ('
+        after_end=')o00 order by combined_last_no desc'
+    board=boards[board_name]
+    sql2=f'''
+    select json_build_object('threads', json_strip_nulls(json_agg(jj.*))) as "result" from (
+    select to_char(to_timestamp(thread."time"), 'MM/DD/YY(Dy)HH24:MI:SS') as "now", thread.*, last_replies from (
+    select o1.no,o1.board, json_strip_nulls(json_agg(o2.* order by o2.no)) as last_replies from
+    (
+        {after_start}
+        select * from (
+        select op.*, coalesce(reply.last_no, op.no) as combined_last_no, coalesce(reply.last_time, op.time) as combined_last_time from
+        (select * from (select board, resto, max(no) as last_no, max(time) as last_time, max(tim) as last_tim from posts group by resto,board having resto!=0)x)reply
+        FULL JOIN
+        (select board, resto, no, time,replies from posts where resto=0)op
+        on reply.board = op.board and reply.resto=op.no
+        -- faster here
+        -- where op.no < 124205675 and op.board=1
+        where op.board={board}
+        order by combined_last_no {ordering}
+        )o0
+        {after_before_clause}
+        limit {limit}
+        {after_end}
+    )o1
+    LEFT JOIN LATERAL
+    (select to_char(to_timestamp("time"), 'MM/DD/YY(Dy)HH24:MI:SS') as "now", * from (select * from posts WHERE (no=o1.no or resto=o1.no) and resto!=0 and board=o1.board order by no desc limit 5 )oo order by no)o2
+    on o1.no=o2.resto and o1.board=o2.board
+    group by o1.no,o1.board
+    ) thread_w_last_replies
+    LEFT JOIN LATERAL
+    (select * from posts where resto=0) thread
+    on thread.no = thread_w_last_replies.no and thread.board = thread_w_last_replies.board
+    -- where thread.board=1
+    order by (CASE WHEN replies=0 THEN thread_w_last_replies.no else (last_replies->-1->>'no')::bigint end) desc
+    -- limit 15;
+    )jj;
+    '''
+    # print(sql0)
+    # ("last_replies" #>> '{{0,resto}}')::bigint = "no" order by (last_replies->-1->>'no')::bigint desc
+    res=await db_handler(sql2, fetchall=False)
+    if res:
+        jj=orjson.loads(res['result'])
+        return jj
+    else:
+        return orjson.loads('{}')
 #
 # Generate a board index.
 #
@@ -421,6 +624,11 @@ async def convert_thread_preview(board_name: str, thread_id: int):
 #
 # Convert threads to 4chan api
 #
+async def convert_thread2(board_name: str, thread_id: int, limit: int):
+    limit_q = f'limit {limit}' if limit is not None and limit > 0 else ''
+    j=(await db_handler(PGSQL_GET_THREAD.format(board_id=boards[board_name], no=thread_id, limit=limit_q), fetchall=False))
+    return orjson.loads(j['res'])
+
 async def convert_thread(board_name: str, thread_id: int):
     thread = await get_thread(board_name, thread_id)
     images = await get_thread_images(board_name, thread_id)

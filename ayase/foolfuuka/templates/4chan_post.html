@@ -1,0 +1,40 @@
+                <div class="postContainer {% if post.resto == 0 %}opContainer{% else %}replyContainer{% endif %}" id="pc{{ post.no }}">
+                    {% if post.resto != 0 %}<div class="sideArrows" id="sa{{ post.no }}">&gt;&gt;</div>{% endif %}
+                    <div id="p{{ post.no }}" class="post {% if post.resto == 0 %}op{% else %}reply{% endif %}">
+                        <div class="postInfoM mobile" id="pim{{ post.no }}"> <span class="nameBlock"><span
+                                    class="name">{{ post.name|safe }}</span>{% if post.id %}<span class="posteruid id_{{ post.id|safe }}">(ID: <span class="hand" title="Highlight posts by this ID">{{ post.id|safe }}</span>)</span>{% endif %}{% if post.country %} <span title="{{ post.country_name|safe }}" class="flag flag-{{ post.country|safe|lower }}"></span>{% elif post.troll_country %}<img src="/assets/image/country/troll/{{ post.troll_country|safe|lower }}.gif" alt="{{ post.troll_country|safe }}" title="{{ post.country_name|safe }}" class="countryFlag">{% endif %}<br><span class="subject">{{ post.sub|safe }}</span>
+                            </span><span class="dateTime postNum" data-utc="{{ post.time }}">{{ post.now }} <a
+                                    href="/{{ board }}/thread/{% if post.resto == 0 %}{{ post.no }}{% else %}{{ post.resto }}{% endif %}#p{{ post.no }}" title="Link to this post">No.</a><a
+                                    href="/{{ board }}/thread/{% if post.resto == 0 %}{{ post.no }}{% else %}{{ post.resto }}{% endif %}#q{{ post.no }}" title="Reply to this post">{{ post.no }}</a></span>
+                        </div>
+                        {% if post.md5 or post.filedeleted %}<div class="file" id="f{{ post.no }}">
+                            {% if post.filedeleted %}
+                            <div class="file" id="f{{ post.no }}"><span class="{% if post.spoiler %} imgspoiler{% endif %}"><img async=on src="/static/images/filedeleted-res.gif" alt="File deleted." class="fileDeletedRes retina"></span></div>
+                            {% else %}
+                            <div class="fileText" id="fT{{ post.no }}">File: <a
+                                    title="{{ post.filename|safe }}{{ post.ext|safe }}"
+                                    href="{% if post.sha256 %}/img/{{ (post.sha256[-1]+'/'+post.sha256[-3:-1]+'/'+post.sha256)|safe }}{{ post.ext }}{% endif %}"
+                                    target="_blank">{% if post.spoiler %}Spoiler Image{% elif post.filename|length > 25 %}{{ post.filename[:25]|safe }}(...){{ post.ext|safe }}{% else %}{{ post.filename|safe }}{{ post.ext|safe }}{% endif %}</a> ({{ post.fsize|filesizeformat|upper }}, {{ post.w }}x{{ post.h }})</div><a
+                                class="fileThumb{% if post.spoiler %} imgspoiler{% endif %}" href="{% if post.sha256 %}/img/{{ (post.sha256[-1]+'/'+post.sha256[-3:-1]+'/'+post.sha256)|safe }}{{ post.ext }}{% endif %}" target="_blank"><img async=on
+                                    src="{% if post.spoiler %}/static/images/spoiler-a1.png{% elif post.sha256t %}/img/{{ (post.sha256t[-1]+'/'+post.sha256t[-3:-1]+'/'+post.sha256t)|safe }}.jpg{% endif %}" alt="{{ post.fsize|filesizeformat|upper|safe }}"
+                            data-md5="{{ post.md5|safe }}" style="height: {% if post.spoiler %}100{% else %}{{ post.tn_h }}{% endif %}px; width: {% if post.spoiler %}100{% else %}{{ post.tn_w }}{% endif %}px;">
+                                <div data-tip data-tip-cb="mShowFull" class="mFileInfo mobile">{{ post.fsize|filesizeformat|upper }} JPG</div>
+                            </a>{% endif %}
+                        </div>{% endif %}
+                        <div class="postInfo desktop" id="pi{{ post.no }}"><input type="checkbox" name="{{ post.no }}"
+                                value="delete"> <span class="subject">{{ post.sub|safe }}</span> <span class="nameBlock"><span
+                                    class="name">{{ post.name }}</span>{% if post.id %}<span class="posteruid id_{{ post.id|safe }}">(ID: <span class="hand" title="Highlight posts by this ID" >
+                                    <!-- style="background-color: rgb({% set r, g, b = post.id|color(0), post.id|color(1), post.id|color(2) %}{{ r }}, {{ g }}, {{ b }}); color: {% if (r*0.299 + g*0.587 + b*0.114) > 186 %}black{% else %}white{% endif %};" -->
+                                    {{ post.id|safe }}</span>)</span>{% endif %}{% if post.country %} <span title="{{ post.country_name|safe }}" class="flag flag-{{ post.country|safe|lower }}"></span>{% elif post.troll_country %}<img src="/assets/image/country/troll/{{ post.troll_country|safe|lower }}.gif" alt="{{ post.troll_country|safe }}" title="{{ post.country_name|safe }}" class="countryFlag">{% endif %}</span> <span class="dateTime"
+                                data-utc="{{ post.time }}">{{ post.now }}</span> <span class="postNum desktop"><a
+                                    href="/{{ board }}/thread/{% if post.resto == 0 %}{{ post.no }}{% else %}{{ post.resto }}{% endif %}#p{{ post.no }}" title="Link to this post">No.</a>
+                                    <!-- <a href="javascript:quote('{{ post.no }}');" title="Reply to this post">{{ post.no }}</a> -->
+                                    <a href="/{{ board }}/thread/{% if post.resto == 0 %}{{ post.no }}{% else %}{{ post.resto }}{% endif %}#q{{ post.no }}" title="Reply to this post">{{ post.no }}</a> &nbsp;
+                                <span>[<a href="/{{ board }}/thread/{% if post.resto == 0 %}{{ post.no }}{% else %}{{ post.resto }}{% endif %}" class="replylink">Reply</a>]</span></span>
+                        </div>
+                        <blockquote class="postMessage" id="m{{ post.no }}">{{ post.com|safe }}</blockquote>
+                    </div>
+                    <div class="postLink mobile"><span class="info">{{ post.replies }} Replies / {{ post.images }} Images</span><a
+                            href="/{{ board }}/thread/{{ post.no }}" class="button">View Thread</a></div>
+                </div>{% if (post.resto == 0) and fromIndex and ((post.replies - post['last_replies']|length) > 0) %}<span class="summary desktop">{{ post.replies - post['last_replies']|length }} replies and {{ post.images - post['last_replies']|select("equalto", "md5")|list|count }} images omitted. <a href="/{{ board }}/thread/{% if post.resto == 0 %}{{ post.no }}{% else %}{{ post.resto }}{% endif %}"
+                        class="replylink">Click here</a> to view.</span>{% endif %}

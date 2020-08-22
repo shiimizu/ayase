@@ -4,6 +4,24 @@
 
 It was produced by the Bibliotheca Anonoma as a replacement for FoolFuuka, to be the API Middleware and HTML Templating Frontend to both Asagi and Ayase compatible scrapers, and the definition of the Ayase SQL Standard.
 
+
+## How use this fork
+This is my development fork for having a frontend for my postgres schema with [`ena`](https://github.com/shiimizu/ena/tree/dev) at `dev` branch.  
+
+It's to show off my SQL statements that can generate indexes/catalogs with 1 SQL query. 
+
+The frontend is using 4chan template that were shamelessly taken from 4chan.
+
+**Getting started:**  
+1. Edit your postgres database connection settings in `ayase/config.py`
+2. Serve your media and setup `nginx` for it
+   * OR have `FastApi` serve it for you: edit `ayase/ayase/view/asagi.py` @ line 22 to point to the correct dir where you have media saved
+3. Start the server
+   ```
+   cd ayase
+   uvicorn fourchan:app
+   ```
+
 ## Installation
 
 Ensure that Python and Pip are installed. Python/PyPy 3.6 or higher is recommended.

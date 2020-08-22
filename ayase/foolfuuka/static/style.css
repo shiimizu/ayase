@@ -29,7 +29,6 @@
 .theme_default p {
   margin: 2px 0 7px;
 }
-}
 .theme_default ::-moz-selection {
   background: #fe57a1;
   color: #ffffff;

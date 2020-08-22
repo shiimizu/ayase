@@ -148,3 +148,4 @@ config.*
 !config.example*
 *.vscode*
 .python-version
+/my_workspace/

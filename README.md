@@ -12,6 +12,11 @@ It's to show off my SQL statements that can generate indexes/catalogs with 1 SQL
 
 The frontend is using 4chan template that were shamelessly taken from 4chan.
 
+**Pagination** works like yuki.la  
+* It's keyset pagination for now  
+* The first page starts with the most recent, you have to click `Previous` to go back earlier as in the first page there is no `Next`
+* Study yuki.la pagination if you want to understand more
+
 **Getting started:**  
 1. Edit your postgres database connection settings in `ayase/config.py`
 2. Serve your media and setup `nginx` for it
